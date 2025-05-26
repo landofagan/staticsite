@@ -1,4 +1,5 @@
 from textnode import TextType, TextNode
+import re
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
 
@@ -22,3 +23,35 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
                 split_nodes.append(TextNode(sections[i], text_type))
         new_nodes.extend(split_nodes)
     return new_nodes
+
+def extract_markdown_images(text):
+    matches = re.findall(r"!\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
+    if len(matches) == 0:
+        raise ValueError(f'Invalid image syntax: {text}')
+    results = []
+    # Strip extra characters
+    for match in matches:
+        alt_text, url = match
+
+        alt_text = alt_text.lstrip('![').rstrip(']')
+
+        url = url.lstrip('(').rstrip(')')
+        results.append((alt_text, url))
+
+    return results
+
+def extract_markdown_links(text):
+    matches = re.findall(r"(?<!!)\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
+    if len(matches) == 0:
+        raise ValueError(f'Invalid link syntax: {text}')
+    results = []
+    # Strip extra characters
+    for match in matches:
+        alt_text, url = match
+
+        alt_text = alt_text.lstrip('[').rstrip(']')
+
+        url = url.lstrip('(').rstrip(')')
+        results.append((alt_text, url))
+
+    return results
