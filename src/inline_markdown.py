@@ -23,67 +23,59 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
         new_nodes.extend(split_nodes)
     return new_nodes
 
-    def test_split_image(self):
-        node = TextNode(
-            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)",
-            TextType.TEXT,
-        )
-        new_nodes = split_nodes_image([node])
-        self.assertListEqual(
-            [
-                TextNode("This is text with an ", TextType.TEXT),
-                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
-            ],
-            new_nodes,
-        )
-
-    def test_split_image_single(self):
-        node = TextNode(
-            "![image](https://www.example.COM/IMAGE.PNG)",
-            TextType.TEXT,
-        )
-        new_nodes = split_nodes_image([node])
-        self.assertListEqual(
-            [
-                TextNode("image", TextType.IMAGE, "https://www.example.COM/IMAGE.PNG"),
-            ],
-            new_nodes,
-        )
-
-    def test_split_images(self):
-        node = TextNode(
-            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
-            TextType.TEXT,
-        )
-        new_nodes = split_nodes_image([node])
-        self.assertListEqual(
-            [
-                TextNode("This is text with an ", TextType.TEXT),
-                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
-                TextNode(" and another ", TextType.TEXT),
+def split_nodes_image(old_nodes):
+    new_nodes = []
+    for old_node in old_nodes:
+        if old_node.text_type != TextType.TEXT:
+            new_nodes.append(old_node)
+            continue
+        original_text = old_node.text
+        images = extract_markdown_images(original_text)
+        if len(images) == 0:
+            new_nodes.append(old_node)
+            continue
+        for image in images:
+            sections = original_text.split(f"![{image[0]}]({image[1]})", 1)
+            if len(sections) != 2:
+                raise ValueError("invalid markdown, image section not closed")
+            if sections[0] != "":
+                new_nodes.append(TextNode(sections[0], TextType.TEXT))
+            new_nodes.append(
                 TextNode(
-                    "second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"
-                ),
-            ],
-            new_nodes,
-        )
+                    image[0],
+                    TextType.IMAGE,
+                    image[1],
+                )
+            )
+            original_text = sections[1]
+        if original_text != "":
+            new_nodes.append(TextNode(original_text, TextType.TEXT))
+    return new_nodes
 
-    def test_split_links(self):
-        node = TextNode(
-            "This is text with a [link](https://boot.dev) and [another link](https://blog.boot.dev) with text that follows",
-            TextType.TEXT,
-        )
-        new_nodes = split_nodes_link([node])
-        self.assertListEqual(
-            [
-                TextNode("This is text with a ", TextType.TEXT),
-                TextNode("link", TextType.LINK, "https://boot.dev"),
-                TextNode(" and ", TextType.TEXT),
-                TextNode("another link", TextType.LINK, "https://blog.boot.dev"),
-                TextNode(" with text that follows", TextType.TEXT),
-            ],
-            new_nodes,
-        )
+
+def split_nodes_link(old_nodes):
+    new_nodes = []
+    for old_node in old_nodes:
+        if old_node.text_type != TextType.TEXT:
+            new_nodes.append(old_node)
+            continue
+        original_text = old_node.text
+        links = extract_markdown_links(original_text)
+        if len(links) == 0:
+            new_nodes.append(old_node)
+            continue
+        for link in links:
+            sections = original_text.split(f"[{link[0]}]({link[1]})", 1)
+            if len(sections) != 2:
+                raise ValueError("invalid markdown, link section not closed")
+            if sections[0] != "":
+                new_nodes.append(TextNode(sections[0], TextType.TEXT))
+            new_nodes.append(TextNode(link[0], TextType.LINK, link[1]))
+            original_text = sections[1]
+        if original_text != "":
+            new_nodes.append(TextNode(original_text, TextType.TEXT))
+    return new_nodes
+
 def extract_markdown_images(text):
     matches = re.findall(r"!\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
     if len(matches) == 0:
